@@ -3,38 +3,34 @@ package com.example.event_tracker
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.hardware.*
 import android.net.Uri
 import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.LaunchedEffect
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.clickable
+import androidx.annotation.RequiresApi
+import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import com.example.event_tracker.api.TicketmasterEvent
+import com.example.event_tracker.ui.components.*
 import com.example.event_tracker.ui.theme.Event_trackerTheme
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
-import java.util.Locale
 
 sealed class ScreenState {
     data object Welcome : ScreenState()
@@ -43,6 +39,8 @@ sealed class ScreenState {
 }
 
 class MainActivity : ComponentActivity() {
+    @RequiresApi(Build.VERSION_CODES.O)
+    @OptIn(ExperimentalAnimationApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -55,18 +53,49 @@ class MainActivity : ComponentActivity() {
                     var screen by remember { mutableStateOf<ScreenState>(ScreenState.Welcome) }
                     var selectedGenre by remember { mutableStateOf("") }
 
-                    when (screen) {
-                        is ScreenState.Welcome -> WelcomeScreen {
-                            screen = ScreenState.GenreSelection
+                    AnimatedContent(
+                        targetState = screen,
+                        transitionSpec = {
+                            fadeIn() + slideInHorizontally { it } with
+                                    fadeOut() + slideOutHorizontally { -it }
+                        },
+                        label = "Screen Transition"
+                    ) { currentScreen ->
+                        when (currentScreen) {
+                            is ScreenState.Welcome -> WelcomeScreen {
+                                screen = ScreenState.GenreSelection
+                            }
+                            is ScreenState.GenreSelection -> GenreSelectionScreen { genre ->
+                                selectedGenre = genre
+                                screen = ScreenState.MainMap
+                            }
+                            is ScreenState.MainMap -> MapScreen(selectedGenre)
                         }
-                        is ScreenState.GenreSelection -> GenreSelectionScreen { genre ->
-                            selectedGenre = genre
-                            screen = ScreenState.MainMap
-                        }
-                        is ScreenState.MainMap -> MapScreen(selectedGenre)
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun RequestLocationPermission(onPermissionGranted: () -> Unit) {
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) onPermissionGranted()
+    }
+
+    LaunchedEffect(Unit) {
+        if (ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        ) {
+            onPermissionGranted()
+        } else {
+            launcher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
     }
 }
@@ -77,11 +106,37 @@ fun WelcomeScreen(onNext: () -> Unit) {
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("🎉 Welcome to ConcertRadar!", style = MaterialTheme.typography.headlineMedium)
-            Spacer(modifier = Modifier.height(24.dp))
-            Button(onClick = onNext) {
-                Text("Next")
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(24.dp)
+        ) {
+            Text(
+                text = "🎉 ConcertRadar",
+                style = MaterialTheme.typography.displayLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = "Find live music events around you",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+
+            Spacer(modifier = Modifier.height(40.dp))
+
+            Button(
+                onClick = onNext,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                shape = MaterialTheme.shapes.medium,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Text("Get Started")
             }
         }
     }
@@ -89,7 +144,7 @@ fun WelcomeScreen(onNext: () -> Unit) {
 
 @Composable
 fun GenreSelectionScreen(onGenreSelected: (String) -> Unit) {
-    val genres = listOf("Rock", "Pop", "Classical", "Jazz", "EDM", "Hip-Hop")
+    val genres = listOf("Rock", "Pop", "Classical", "Jazz", "EDM", "Hip-Hop", "Metal", "Country")
 
     Column(
         modifier = Modifier
@@ -98,30 +153,59 @@ fun GenreSelectionScreen(onGenreSelected: (String) -> Unit) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("What kind of concerts do you like?", style = MaterialTheme.typography.titleLarge)
-        Spacer(modifier = Modifier.height(16.dp))
-        genres.forEach { genre ->
-            Button(
-                onClick = { onGenreSelected(genre) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-            ) {
-                Text(genre)
+        Text(
+            text = "What music do you like?",
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onBackground
+        )
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        LazyColumn {
+            items(genres.chunked(2)) { rowGenres ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    rowGenres.forEach { genre ->
+                        Button(
+                            onClick = { onGenreSelected(genre) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(56.dp),
+                            shape = MaterialTheme.shapes.medium,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Text(genre)
+                        }
+                    }
+
+                    if (rowGenres.size < 2) {
+                        Spacer(Modifier.weight(1f))
+                    }
+                }
             }
         }
     }
 }
 
+@RequiresApi(Build.VERSION_CODES.O)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MapScreen(genre: String) {
     val context = LocalContext.current
     val viewModel = remember { EventViewModel() }
     val events by viewModel.events.collectAsState()
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     var userLocation by remember { mutableStateOf<LatLng?>(null) }
     var searchText by remember { mutableStateOf("") }
     var selectedEvent by remember { mutableStateOf<TicketmasterEvent?>(null) }
-    val keyboardController = LocalSoftwareKeyboardController.current
+    var permissionGranted by remember { mutableStateOf(false) }
 
     val filteredEvents = remember(searchText, events) {
         if (searchText.isBlank()) {
@@ -129,36 +213,53 @@ fun MapScreen(genre: String) {
         } else {
             events.filter {
                 val city = it._embedded.venues.firstOrNull()?.city?.name ?: ""
-                city.contains(searchText, ignoreCase = true)
+                city.contains(searchText, ignoreCase = true) ||
+                        it.name.contains(searchText, ignoreCase = true)
             }
         }
     }
 
-    val cityCoordinates = mapOf(
-        "Paris" to LatLng(48.8566, 2.3522),
-        "London" to LatLng(51.5074, -0.1278),
-        "New York" to LatLng(40.7128, -74.0060),
-        "Berlin" to LatLng(52.52, 13.405),
-        "Rome" to LatLng(41.9028, 12.4964),
-        "Madrid" to LatLng(40.4168, -3.7038),
-        "Los Angeles" to LatLng(34.0522, -118.2437),
-        "Tokyo" to LatLng(35.6895, 139.6917)
-    )
+    // Request location permission in the main composable body
+    RequestLocationPermission {
+        permissionGranted = true
+    }
 
-    LaunchedEffect(Unit) {
-        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
-        val hasPermission = ActivityCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
+    // Fetch location and events only when permission is granted
+    LaunchedEffect(permissionGranted) {
+        if (permissionGranted) {
+            isLoading = true
+            errorMessage = null
 
-        if (hasPermission) {
-            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
-                location?.let {
-                    val latLng = LatLng(it.latitude, it.longitude)
-                    userLocation = latLng
-                    viewModel.fetchEvents(it.latitude, it.longitude)
+            val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+            val hasPermission = ActivityCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (hasPermission) {
+                try {
+                    fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                        location?.let {
+                            val latLng = LatLng(it.latitude, it.longitude)
+                            userLocation = latLng
+                            viewModel.fetchEvents(it.latitude, it.longitude)
+                        } ?: run {
+                            val defaultLocation = LatLng(48.8566, 2.3522) // Fallback to Paris
+                            userLocation = defaultLocation
+                            viewModel.fetchEvents(defaultLocation.latitude, defaultLocation.longitude)
+                        }
+                        isLoading = false
+                    }.addOnFailureListener {
+                        errorMessage = "Couldn't get your location. Please search for a city."
+                        isLoading = false
+                    }
+                } catch (e: Exception) {
+                    errorMessage = "Location error: ${e.localizedMessage}"
+                    isLoading = false
                 }
+            } else {
+                errorMessage = "Location permission is required to find nearby events."
+                isLoading = false
             }
         }
     }
@@ -166,167 +267,201 @@ fun MapScreen(genre: String) {
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(
             userLocation ?: LatLng(48.8566, 2.3522),
-            14f
+            12f
         )
     }
 
-    Column {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            CompassDisplay()
+    LaunchedEffect(userLocation) {
+        userLocation?.let {
+            cameraPositionState.position = CameraPosition.fromLatLngZoom(it, 12f)
         }
+    }
 
-        TextField(
-            value = searchText,
-            onValueChange = { searchText = it },
-            label = { Text("Search events by city") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Search),
-            keyboardActions = KeyboardActions(
-                onSearch = {
-                    val key = searchText.trim().replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }
-                    val coords = cityCoordinates[key]
-                    if (coords != null) {
-                        viewModel.fetchEvents(coords.latitude, coords.longitude)
-                    } else {
-                        println("City not found: $key")
-                    }
-                    keyboardController?.hide()
-                }
-            ),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-        )
-
-        GoogleMap(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(300.dp),
-            cameraPositionState = cameraPositionState
-        ) {
-            userLocation?.let {
-                Marker(
-                    state = rememberMarkerState(position = it),
-                    title = "You are here"
+    Scaffold(
+        topBar = {
+            SmallTopAppBar(
+                title = { Text("Concerts: $genre") },
+                colors = TopAppBarDefaults.smallTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary
                 )
-            }
+            )
+        }
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    EnhancedCompass()
+                }
 
-            for (event in filteredEvents) {
-                val venue = event._embedded.venues.firstOrNull()
-                val lat = venue?.location?.latitude?.toDoubleOrNull()
-                val lng = venue?.location?.longitude?.toDoubleOrNull()
-                if (lat != null && lng != null) {
-                    Marker(
-                        state = rememberMarkerState(position = LatLng(lat, lng)),
-                        title = event.name,
-                        onClick = {
-                            selectedEvent = event
-                            true
+                ConcertSearchBar(
+                    value = searchText,
+                    onValueChange = { searchText = it },
+                    onSearch = {
+                        if (searchText.isNotBlank()) {
+                            isLoading = true
+                            errorMessage = null
+                            viewModel.fetchEventsByCity(searchText)
+                            isLoading = false
                         }
-                    )
+                    }
+                )
+
+                Box(modifier = Modifier.weight(1f)) {
+                    when {
+                        isLoading -> LoadingIndicator()
+                        errorMessage != null -> ErrorState(errorMessage!!)
+                        else -> {
+                            Column {
+                                GoogleMap(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(240.dp),
+                                    cameraPositionState = cameraPositionState,
+                                    properties = MapProperties(
+                                        isMyLocationEnabled = permissionGranted
+                                    )
+                                ) {
+                                    userLocation?.let {
+                                        Marker(
+                                            state = rememberMarkerState(position = it),
+                                            title = "You are here"
+                                        )
+                                    }
+
+                                    for (event in filteredEvents) {
+                                        val venue = event._embedded.venues.firstOrNull()
+                                        val lat = venue?.location?.latitude?.toDoubleOrNull()
+                                        val lng = venue?.location?.longitude?.toDoubleOrNull()
+                                        if (lat != null && lng != null) {
+                                            Marker(
+                                                state = rememberMarkerState(position = LatLng(lat, lng)),
+                                                title = event.name,
+                                                onClick = {
+                                                    selectedEvent = event
+                                                    true
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+
+                                if (filteredEvents.isEmpty() && !isLoading) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .weight(1f),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "No events found for \"$searchText\"",
+                                            style = MaterialTheme.typography.bodyLarge
+                                        )
+                                    }
+                                } else {
+                                    Text(
+                                        text = "Nearby Events (${filteredEvents.size})",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        modifier = Modifier.padding(16.dp, 8.dp)
+                                    )
+
+                                    LazyColumn {
+                                        items(filteredEvents) { event ->
+                                            EventCard(
+                                                event = event,
+                                                onClick = { selectedEvent = event }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
-        }
 
-        selectedEvent?.let { event ->
-            AlertDialog(
-                onDismissRequest = { selectedEvent = null },
-                title = { Text(event.name) },
-                text = {
-                    Column {
-                        Text("📅 Date: ${event.dates.start.localDate} ${event.dates.start.localTime ?: ""}")
-                        Text("📍 City: ${event._embedded.venues.firstOrNull()?.city?.name ?: "Unknown"}")
-                        Text("🏟️ Venue: ${event._embedded.venues.firstOrNull()?.name ?: "Unknown"}")
-                    }
-                },
-                confirmButton = {
-                    TextButton(onClick = {
+            selectedEvent?.let { event ->
+                EventDetailsDialog(
+                    event = event,
+                    onDismiss = { selectedEvent = null },
+                    onMoreInfo = {
                         val url = event.url
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                         context.startActivity(intent)
-                    }) {
-                        Text("More Info")
                     }
-                },
-                dismissButton = {
-                    TextButton(onClick = { selectedEvent = null }) {
-                        Text("Close")
-                    }
-                }
-            )
-        }
-
-        if (filteredEvents.isEmpty()) {
-            Text(
-                text = "No events found for \"$searchText\"",
-                modifier = Modifier.padding(16.dp)
-            )
-        } else {
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                items(filteredEvents) { event ->
-                    Column(modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { selectedEvent = event }
-                        .padding(8.dp)
-                    ) {
-                        Text("${event.name} - ${event._embedded.venues.firstOrNull()?.city?.name ?: ""}")
-                    }
-                }
+                )
             }
         }
     }
 }
 
 @Composable
-fun CompassDisplay() {
-    val context = LocalContext.current
-    val sensorManager = remember {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            context.getSystemService(SensorManager::class.java)
-        } else null
-    }
-    var azimuth by remember { mutableFloatStateOf(0f) }
+fun EventDetailsDialog(
+    event: TicketmasterEvent,
+    onDismiss: () -> Unit,
+    onMoreInfo: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = event.name,
+                style = MaterialTheme.typography.titleLarge
+            )
+        },
+        text = {
+            Column(modifier = Modifier.padding(8.dp)) {
+                val venue = event._embedded.venues.firstOrNull()
 
-    val sensorEventListener = remember {
-        object : SensorEventListener {
-            override fun onSensorChanged(event: SensorEvent) {
-                if (event.sensor.type == Sensor.TYPE_ROTATION_VECTOR) {
-                    val rotationMatrix = FloatArray(9)
-                    SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
-                    val orientationAngles = FloatArray(3)
-                    SensorManager.getOrientation(rotationMatrix, orientationAngles)
-                    azimuth = Math.toDegrees(orientationAngles[0].toDouble()).toFloat()
+                Text(
+                    text = "📅 Date: ${event.dates.start.localDate}",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                event.dates.start.localTime?.let { time ->
+                    Text(
+                        text = "⏰ Time: $time",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                venue?.let {
+                    Text(
+                        text = "🏟️ Venue: ${it.name}",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "📍 Location: ${it.city.name}, ${it.country.name}",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
                 }
             }
-
-            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        },
+        confirmButton = {
+            Button(
+                onClick = onMoreInfo,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Text("Buy Tickets")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("Close")
+            }
         }
-    }
-
-    DisposableEffect(Unit) {
-        val rotationVector = sensorManager?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
-        if (rotationVector != null) {
-            sensorManager.registerListener(sensorEventListener, rotationVector, SensorManager.SENSOR_DELAY_UI)
-        }
-        onDispose {
-            sensorManager?.unregisterListener(sensorEventListener)
-        }
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(100.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Image(
-            painter = painterResource(android.R.drawable.ic_menu_compass),
-            contentDescription = "Compass",
-            modifier = Modifier
-                .size(64.dp)
-                .graphicsLayer {
-                    rotationZ = -azimuth
-                }
-        )
-    }
+    )
 }

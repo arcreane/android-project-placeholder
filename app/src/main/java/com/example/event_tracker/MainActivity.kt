@@ -14,6 +14,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.RequiresApi
 import androidx.compose.animation.*
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,6 +22,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
@@ -103,7 +105,9 @@ fun RequestLocationPermission(onPermissionGranted: () -> Unit) {
 @Composable
 fun WelcomeScreen(onNext: () -> Unit) {
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFFDF3E7)),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -112,16 +116,18 @@ fun WelcomeScreen(onNext: () -> Unit) {
         ) {
             Text(
                 text = "🎉 ConcertRadar",
-                style = MaterialTheme.typography.displayLarge,
-                color = MaterialTheme.colorScheme.primary
+                style = MaterialTheme.typography.displayLarge.copy(
+                    color = Color.Black
+                )
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
                 text = "Find live music events around you",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onBackground
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    color = Color.Black
+                )
             )
 
             Spacer(modifier = Modifier.height(40.dp))
@@ -133,14 +139,15 @@ fun WelcomeScreen(onNext: () -> Unit) {
                     .height(50.dp),
                 shape = MaterialTheme.shapes.medium,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
+                    containerColor = Color(0xFFB7CFA0)
                 )
             ) {
-                Text("Get Started")
+                Text("Get Started", color = Color.Black)
             }
         }
     }
 }
+
 
 @Composable
 fun GenreSelectionScreen(onGenreSelected: (String) -> Unit) {
@@ -149,14 +156,16 @@ fun GenreSelectionScreen(onGenreSelected: (String) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(Color(0xFFFDF3E7))
             .padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
             text = "What music do you like?",
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onBackground
+            style = MaterialTheme.typography.titleLarge.copy(
+                color = Color.Black
+            )
         )
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -177,10 +186,10 @@ fun GenreSelectionScreen(onGenreSelected: (String) -> Unit) {
                                 .height(56.dp),
                             shape = MaterialTheme.shapes.medium,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary
+                                containerColor = Color(0xFFB7CFA0)
                             )
                         ) {
-                            Text(genre)
+                            Text(genre, color = Color.Black)
                         }
                     }
 
@@ -192,6 +201,7 @@ fun GenreSelectionScreen(onGenreSelected: (String) -> Unit) {
         }
     }
 }
+
 
 @RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
@@ -280,10 +290,10 @@ fun MapScreen(genre: String) {
     Scaffold(
         topBar = {
             SmallTopAppBar(
-                title = { Text("Concerts: $genre") },
+                title = { Text("Concerts: $genre", color = Color.Black) }, // Title in black color
                 colors = TopAppBarDefaults.smallTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary
+                    containerColor = Color(0xFFB7CFA0),  // Button color in top bar (same as button color)
+                    titleContentColor = Color.Black // Title text in black color
                 )
             )
         }
@@ -292,6 +302,7 @@ fun MapScreen(genre: String) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .background(Color(0xFFFDF3E7)) // Background color set to #FDF3E7
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -359,14 +370,16 @@ fun MapScreen(genre: String) {
                                     ) {
                                         Text(
                                             text = "No events found for \"$searchText\"",
-                                            style = MaterialTheme.typography.bodyLarge
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = Color.Black // Text in black
                                         )
                                     }
                                 } else {
                                     Text(
                                         text = "Nearby Events (${filteredEvents.size})",
                                         style = MaterialTheme.typography.titleMedium,
-                                        modifier = Modifier.padding(16.dp, 8.dp)
+                                        modifier = Modifier.padding(16.dp, 8.dp),
+                                        color = Color.Black // Text in black
                                     )
 
                                     LazyColumn {
@@ -399,6 +412,7 @@ fun MapScreen(genre: String) {
     }
 }
 
+
 @Composable
 fun EventDetailsDialog(
     event: TicketmasterEvent,
@@ -410,7 +424,8 @@ fun EventDetailsDialog(
         title = {
             Text(
                 text = event.name,
-                style = MaterialTheme.typography.titleLarge
+                style = MaterialTheme.typography.titleLarge,
+                color = Color.Black // Title text in black
             )
         },
         text = {
@@ -419,7 +434,8 @@ fun EventDetailsDialog(
 
                 Text(
                     text = "📅 Date: ${event.dates.start.localDate}",
-                    style = MaterialTheme.typography.bodyLarge
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = Color.Black // Text in black
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -427,7 +443,8 @@ fun EventDetailsDialog(
                 event.dates.start.localTime?.let { time ->
                     Text(
                         text = "⏰ Time: $time",
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.Black // Text in black
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
@@ -436,14 +453,16 @@ fun EventDetailsDialog(
                 venue?.let {
                     Text(
                         text = "🏟️ Venue: ${it.name}",
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.Black // Text in black
                     )
 
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
                         text = "📍 Location: ${it.city.name}, ${it.country.name}",
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.Black // Text in black
                     )
                 }
             }
@@ -452,16 +471,17 @@ fun EventDetailsDialog(
             Button(
                 onClick = onMoreInfo,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
+                    containerColor = Color(0xFFB7CFA0) // Button color in #B7CFA0
                 )
             ) {
-                Text("Buy Tickets")
+                Text("Buy Tickets", color = Color.Black) // Text color for button is black
             }
         },
         dismissButton = {
             OutlinedButton(onClick = onDismiss) {
-                Text("Close")
+                Text("Close", color = Color.Black) // Close button text in black
             }
-        }
+        },
+        containerColor = Color(0xFFFDF3E7) // Background of dialog in #FDF3E7
     )
 }
